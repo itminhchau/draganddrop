@@ -16,7 +16,9 @@ const DropZone: React.FC<HtmlHTMLAttributes<HTMLDivElement>> = ({
       style={{
         border: "2px dashed #000",
         position: "relative",
-        overflow: "hidden",
+
+        overflow: "visible", // Đảm bảo các item không bị cắt bởi vùng thả
+        zIndex: 5,
       }}
     >
       {children}

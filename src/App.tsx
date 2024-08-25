@@ -2,95 +2,91 @@ import { DndContext, DragEndEvent, closestCorners } from "@dnd-kit/core";
 import React, { useRef, useState } from "react";
 import DropZone from "./components/DropZone";
 import SquareItem from "./components/SquareItem";
+import DraggableSquare from "./components/DraggableSquare";
 
 const App: React.FC = () => {
   const [droppedItems, setDroppedItems] = useState<
-    { id: string; x: number; y: number }[]
+    { id: string; x: number; y: number; width: number; height: number }[]
   >([]);
   const dropZoneRef = useRef<HTMLDivElement>(null);
   const snapDistance = 30;
   const handleDragEnd = (event: DragEndEvent) => {
     const { over, active, activatorEvent } = event;
+    const { width, height } = active.data.current;
     const activeElement = activatorEvent.target as HTMLElement;
     const dropZoneElement = dropZoneRef.current;
 
     if (over && over.id === "dropzone" && activeElement && dropZoneElement) {
       const itemRect = activeElement.getBoundingClientRect();
-      const itemDropZone = dropZoneElement?.getBoundingClientRect();
+      const itemDropZone = dropZoneElement.getBoundingClientRect();
       let x = itemRect.x - itemDropZone.x;
       let y = itemRect.y - itemDropZone.y;
 
+      // Tọa độ các đỉnh của item mới
+      const newCorners = [
+        { x, y }, // topLeft
+        { x: x + width, y }, // topRight
+        { x, y: y + height }, // bottomLeft
+        { x: x + width, y: y + height }, // bottomRight
+      ];
+      console.log("🚀 ~ handleDragEnd ~ newCorners:", newCorners);
+
       let snapped = false;
+      let closestDistance = snapDistance;
 
       // Kiểm tra khoảng cách với các hình vuông đã thả trước đó
       droppedItems.forEach((item) => {
-        const itemLeft = item.x;
-        const itemRight = item.x + 50;
-        const itemTop = item.y;
-        const itemBottom = item.y + 50;
+        // Tọa độ các đỉnh của item đã thả trước đó
+        const oldCorners = [
+          { x: item.x, y: item.y }, // topLeft
+          { x: item.x + item.width, y: item.y }, // topRight
+          { x: item.x, y: item.y + item.height }, // bottomLeft
+          { x: item.x + item.width, y: item.y + item.height }, // bottomRight
+        ];
+        console.log("🚀 ~ droppedItems.forEach ~ oldCorners:", oldCorners);
 
-        const newItemLeft = x;
-        const newItemRight = x + 50;
-        const newItemTop = y;
-        const newItemBottom = y + 50;
+        newCorners.forEach((newCorner) => {
+          oldCorners.forEach((oldCorner) => {
+            const distance = Math.sqrt(
+              Math.pow(newCorner.x - oldCorner.x, 2) +
+                Math.pow(newCorner.y - oldCorner.y, 2)
+            );
+            console.log("🚀 ~ oldCorners.forEach ~ distance:", distance);
 
-        // Kiểm tra khoảng cách giữa các cạnh
-        if (
-          Math.abs(newItemLeft - itemRight) <= snapDistance &&
-          ((newItemTop < itemBottom && newItemBottom > itemTop) ||
-            (newItemBottom > itemTop && newItemTop < itemBottom))
-        ) {
-          // Snap vào cạnh phải
-          x = itemRight;
-          y = itemTop;
-          snapped = true;
-        }
-
-        if (
-          Math.abs(newItemRight - itemLeft) <= snapDistance &&
-          ((newItemTop < itemBottom && newItemBottom > itemTop) ||
-            (newItemBottom > itemTop && newItemTop < itemBottom))
-        ) {
-          // Snap vào cạnh trái
-          x = itemLeft - 50;
-          y = itemTop;
-          snapped = true;
-        }
-
-        if (
-          Math.abs(newItemTop - itemBottom) <= snapDistance &&
-          ((newItemLeft < itemRight && newItemRight > itemLeft) ||
-            (newItemRight > itemLeft && newItemLeft < itemRight))
-        ) {
-          // Snap vào cạnh dưới
-          y = itemBottom;
-          x = itemLeft;
-          snapped = true;
-        }
-
-        if (
-          Math.abs(newItemBottom - itemTop) <= snapDistance &&
-          ((newItemLeft < itemRight && newItemRight > itemLeft) ||
-            (newItemRight > itemLeft && newItemLeft < itemRight))
-        ) {
-          // Snap vào cạnh trên
-          y = itemTop - 50;
-          x = itemLeft;
-          snapped = true;
-        }
+            // Kiểm tra nếu khoảng cách nhỏ hơn khoảng cách hít và là nhỏ nhất
+            if (distance <= snapDistance && distance < closestDistance) {
+              x += oldCorner.x - newCorner.x; // Điều chỉnh vị trí x
+              y += oldCorner.y - newCorner.y; // Điều chỉnh vị trí y
+              closestDistance = distance;
+              snapped = true;
+            }
+          });
+        });
       });
 
-      const id = active.id.toString();
-      setDroppedItems((prev) => [...prev, { id, x, y }]);
+      if (!snapped) {
+        // Nếu không có hít, item sẽ được thả ở vị trí hiện tại
+        setDroppedItems((prev) => [
+          ...prev,
+          { id: active.id.toString(), x, y, width, height },
+        ]);
+      } else {
+        // Nếu có hít, update lại vị trí
+        setDroppedItems((prev) => [
+          ...prev,
+          { id: active.id.toString(), x, y, width, height },
+        ]);
+      }
     }
   };
+
   return (
     <DndContext onDragEnd={handleDragEnd} collisionDetection={closestCorners}>
       <div style={{ display: "flex", gap: "10px" }}>
-        <SquareItem id="item-1" color="red" />
-        <SquareItem id="item-2" color="blue" />
-        <SquareItem id="item-3" color="green" />
-        <SquareItem id="item-4" color="yellow" />
+        <SquareItem id="item-1" color="red" width={120} height={120} />
+        <SquareItem id="item-2" color="blue" width={120} height={60} />
+        <SquareItem id="item-3" color="green" width={30} height={30} />
+        <SquareItem id="item-4" color="yellow" width={60} height={60} />
       </div>
 
       <div ref={dropZoneRef}>
@@ -101,8 +97,8 @@ const App: React.FC = () => {
                 key={index}
                 x={item.x}
                 y={item.y}
-                width="50"
-                height="50"
+                width={item.width}
+                height={item.height}
                 stroke="black"
                 strokeWidth={2}
                 fill={
@@ -115,16 +111,6 @@ const App: React.FC = () => {
                     : "yellow"
                 }
               />
-              <text
-                x={50 / 2 + item.x}
-                y={50 / 2 + item.y}
-                fontSize="12"
-                fill="white"
-                textAnchor="middle"
-                dominantBaseline="middle"
-              >
-                1
-              </text>
             </>
           ))}
         </DropZone>
